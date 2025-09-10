@@ -3,20 +3,19 @@ on:
   release:
     types: [published]
   workflow_dispatch:
-  
-inputs:
-  IN_ROLE_TO_ASSUME:
-    description: 'The ARN of the role to assume in the target AWS account'
-    required: true
-    default: 'arn:aws:iam::568614420041:role/GitHubAction-AssumeRoleWithAction'
-  IN_AWS_REGION:
-    description: 'The AWS region where the ECR repository is located'
-    required: true
-    default: 'us-east-1'
-  IN_ECR_REPOSITORY:
-    description: 'The name of the ECR repository (without the full URI)'
-    required: true
-    default: 'provar-playwright-mcp'
+    inputs:
+      IN_ROLE_TO_ASSUME:
+        description: 'The ARN of the role to assume in the target AWS account'
+        required: true
+        default: 'arn:aws:iam::568614420041:role/GitHubAction-AssumeRoleWithAction'
+      IN_AWS_REGION:
+        description: 'The AWS region where the ECR repository is located'
+        required: true
+        default: 'us-east-1'
+      IN_ECR_REPOSITORY:
+       description: 'The name of the ECR repository (without the full URI)'
+       required: true
+       default: 'provar-playwright-mcp'
 jobs:
   publish-docker:
     runs-on: ubuntu-latest
