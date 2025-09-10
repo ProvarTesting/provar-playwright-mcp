@@ -2,100 +2,66 @@ name: Publish
 on:
   release:
     types: [published]
+  workflow_dispatch:
+  
+inputs:
+  IN_ROLE_TO_ASSUME:
+    description: 'The ARN of the role to assume in the target AWS account'
+    required: true
+    default: 'arn:aws:iam::568614420041:role/GitHubAction-AssumeRoleWithAction'
+  IN_AWS_REGION:
+    description: 'The AWS region where the ECR repository is located'
+    required: true
+    default: 'us-east-1'
+  IN_ECR_REPOSITORY:
+    description: 'The name of the ECR repository (without the full URI)'
+    required: true
+    default: 'provar-playwright-mcp'
 jobs:
-  publish-npm:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write # Needed for npm provenance
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 18
-          registry-url: https://registry.npmjs.org/
-      - run: npm ci
-      - run: npx playwright install --with-deps
-      - run: npm run lint
-      - run: npm run ctest
-      - run: npm publish --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
   publish-docker:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      id-token: write # Needed for OIDC login to Azure
-    environment: allow-publishing-docker-to-acr
+      contents: write
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up QEMU # Needed for multi-platform builds (e.g., arm64 on amd64 runner)
-        uses: docker/setup-qemu-action@v3
-      - name: Set up Docker Buildx # Needed for multi-platform builds
-        uses: docker/setup-buildx-action@v3
-      - name: Azure Login via OIDC
-        uses: azure/login@v2
+      - name: Git clone the repository
+        uses: actions/checkout@v4
         with:
-          client-id: ${{ secrets.AZURE_DOCKER_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_DOCKER_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_DOCKER_SUBSCRIPTION_ID }}
-      - name: Login to ACR
-        run: az acr login --name playwright
-      - name: Build and push Docker image
-        id: build-push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile # Adjust path if your Dockerfile is elsewhere
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: |
-            playwright.azurecr.io/public/playwright/mcp:${{ github.event.release.tag_name }}
-            playwright.azurecr.io/public/playwright/mcp:latest
-      - uses: oras-project/setup-oras@v1
-      - name: Set oras tags
-        run: |
-          attach_eol_manifest() {
-            local image="$1"
-            local today=$(date -u +'%Y-%m-%d')
-            # oras is re-using Docker credentials, so we don't need to login.
-            # Following the advice in https://portal.microsofticm.com/imp/v3/incidents/incident/476783820/summary
-            oras attach --artifact-type application/vnd.microsoft.artifact.lifecycle --annotation "vnd.microsoft.artifact.lifecycle.end-of-life.date=$today" $image
-          }
-          # for each tag, attach the eol manifest
-          for tag in $(echo ${{ steps.build-push.outputs.metadata['image.name'] }} | tr ',' '\n'); do
-            attach_eol_manifest $tag
-          done
-
-  package-extension:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write # Needed to upload release assets
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-      - name: Install extension dependencies
-        working-directory: ./extension
-        run: npm ci
-      - name: Build extension
-        working-directory: ./extension
-        run: npm run build
-      - name: Get extension version
-        id: get-version
-        working-directory: ./extension
+          fetch-depth: 0
+      - name: Get current version
+        id: generate-version
         run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
-      - name: Package extension
-        working-directory: ./extension
-        run: |
-          cd dist
-          zip -r ../playwright-mcp-extension-${{ steps.get-version.outputs.version }}.zip .
-          cd ..
-      - name: Upload extension to release
+
+      - name: Configure AWS credentials for GitRepos Account
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ inputs.IN_ROLE_TO_ASSUME }}
+          role-session-name: GitHub_to_AWS_via_FederatedOIDC
+          aws-region: ${{ inputs.IN_AWS_REGION }}
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+        
+      - name: Build, tag, and push image to Amazon ECR
+        id: build-image
         env:
-           GITHUB_TOKEN: ${{ github.token }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          VERSION: ${{ steps.generate-version.outputs.version }}
         run: |
-            gh release upload ${{github.event.release.tag_name}} ./extension/playwright-mcp-extension-${{ steps.get-version.outputs.version }}.zip
+          # Build with version information
+          docker build \
+            -t ${{ inputs.IN_ECR_REPOSITORY }}:$VERSION .
+          
+          # Tag for ECR
+          docker tag ${{ inputs.IN_ECR_REPOSITORY }}:$VERSION $ECR_REGISTRY/${{ inputs.IN_ECR_REPOSITORY }}:$VERSION
+          
+          # Push to ECR
+          docker push $ECR_REGISTRY/${{ inputs.IN_ECR_REPOSITORY }}:$VERSION
+          
+          # Set output
+          echo "image=$ECR_REGISTRY/${{ inputs.IN_ECR_REPOSITORY }}:$VERSION" >> $GITHUB_OUTPUT
+          
+          # Log the image details
+          echo "Built and pushed image: $ECR_REGISTRY/${{ inputs.IN_ECR_REPOSITORY }}:$VERSION"
+
+  
