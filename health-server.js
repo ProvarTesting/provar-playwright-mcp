@@ -1,7 +1,7 @@
 // Simple health check server for Docker/ALB
 const http = require('http');
 
-const PORT = 8931;
+const PORT = 8932;
 
 const server = http.createServer((req, res) => {
   if (req.url === '/health' && req.method === 'GET') {
