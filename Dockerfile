@@ -1,5 +1,3 @@
-ARG BUILDPLATFORM
-ARG TARGETPLATFORM
 ARG PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 # ------------------------------
@@ -7,7 +5,7 @@ ARG PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 # ------------------------------
 # Base stage: Contains only the minimal dependencies required for runtime
 # (node_modules and Playwright system dependencies)
-FROM --platform=$BUILDPLATFORM node:22-bookworm-slim AS base
+FROM --platform=linux/arm64 node:22-bookworm-slim AS base
 
 ARG PLAYWRIGHT_BROWSERS_PATH
 ENV PLAYWRIGHT_BROWSERS_PATH=${PLAYWRIGHT_BROWSERS_PATH}
@@ -63,5 +61,5 @@ USER ${USERNAME}
 COPY --from=browser --chown=${USERNAME}:${USERNAME} ${PLAYWRIGHT_BROWSERS_PATH} ${PLAYWRIGHT_BROWSERS_PATH}
 COPY --chown=${USERNAME}:${USERNAME} cli.js health-server.js package.json ./
 
-# Run in headless and only with chromium (other browsers need more dependencies not included in this image)
-ENTRYPOINT ["/bin/sh", "-c", "node health-server.js & exec node cli.js --headless --browser chromium --no-sandbox --port 8931 --host 0.0.0.0"]
+# Run in headless mode with ARM64-optimized flags
+ENTRYPOINT ["/bin/sh", "-c", "node health-server.js & exec node cli.js --headless --browser chromium --no-sandbox --disable-dev-shm-usage --disable-gpu --port 8931 --host 0.0.0.0"]
