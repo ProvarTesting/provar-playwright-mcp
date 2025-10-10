@@ -61,5 +61,25 @@ USER ${USERNAME}
 COPY --from=browser --chown=${USERNAME}:${USERNAME} ${PLAYWRIGHT_BROWSERS_PATH} ${PLAYWRIGHT_BROWSERS_PATH}
 COPY --chown=${USERNAME}:${USERNAME} cli.js health-server.js package.json ./
 
-# Run in headless mode with ARM64-optimized flags
-ENTRYPOINT ["/bin/sh", "-c", "node health-server.js & exec node cli.js --headless --browser chromium --no-sandbox --disable-dev-shm-usage --disable-gpu --port 8931 --host 0.0.0.0"]
+# Create entrypoint script specifically for ARM64 AWS Agent Core
+COPY --chown=${USERNAME}:${USERNAME} <<'EOF' /app/entrypoint.sh
+#!/bin/bash
+set -e
+
+echo "Starting Playwright MCP server on ARM64..."
+
+# Start health server in background
+node health-server.js &
+
+# Run main application with basic flags for AWS Agent Core
+exec node cli.js \
+  --headless \
+  --browser chromium \
+  --port 8931 \
+  --host 0.0.0.0
+EOF
+
+RUN chmod +x /app/entrypoint.sh
+
+# Use the entrypoint script
+ENTRYPOINT ["/app/entrypoint.sh"]
