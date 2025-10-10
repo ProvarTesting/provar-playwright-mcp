@@ -1,3 +1,5 @@
+ARG BUILDPLATFORM
+ARG TARGETPLATFORM
 ARG PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 # ------------------------------
@@ -5,7 +7,7 @@ ARG PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 # ------------------------------
 # Base stage: Contains only the minimal dependencies required for runtime
 # (node_modules and Playwright system dependencies)
-FROM node:22-bookworm-slim AS base
+FROM --platform=$BUILDPLATFORM node:22-bookworm-slim AS base
 
 ARG PLAYWRIGHT_BROWSERS_PATH
 ENV PLAYWRIGHT_BROWSERS_PATH=${PLAYWRIGHT_BROWSERS_PATH}
@@ -31,7 +33,7 @@ RUN --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-cache \
   npm ci
 
 # Copy the rest of the app
-COPY *.json *.js *.ts .
+COPY *.json *.js *.ts ./
 
 # ------------------------------
 # Browser

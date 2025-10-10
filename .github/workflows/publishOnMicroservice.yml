@@ -1,4 +1,4 @@
-name: Publish
+name: Publish on Microservice
 on:
   release:
     types: [published]
@@ -7,7 +7,7 @@ on:
       IN_ROLE_TO_ASSUME:
         description: 'The ARN of the role to assume in the target AWS account'
         required: true
-        default: 'arn:aws:iam::568614420041:role/GitHubAction-AssumeRoleWithAction'
+        default: 'arn:aws:iam::058264226076:role/GitHubAction-AssumeRoleWithAction'
       IN_AWS_REGION:
         description: 'The AWS region where the ECR repository is located'
         required: true
