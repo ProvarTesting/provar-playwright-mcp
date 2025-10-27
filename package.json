@@ -1,6 +1,6 @@
 {
-  "name": "@playwright/mcp",
-  "version": "0.0.37",
+  "name": "@provartesting/provar-playwright-mcp",
+  "version": "0.0.1",
   "description": "Playwright Tools for MCP",
   "repository": {
     "type": "git",
@@ -11,7 +11,7 @@
     "node": ">=18"
   },
   "author": {
-    "name": "Microsoft Corporation"
+    "name": "Provar"
   },
   "license": "Apache-2.0",
   "scripts": {
