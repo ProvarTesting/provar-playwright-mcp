@@ -6,25 +6,20 @@ on:
 
 jobs:
   publish-npm:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
       id-token: write
-    
-    container:
-      image: node:22
-      options: --platform linux/arm64
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         
-      - name: Setup npm registry
-        run: |
-          npm config set registry https://registry.npmjs.org/
-          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > ~/.npmrc
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
           
       - name: Get current version
         id: package-version
@@ -41,8 +36,10 @@ jobs:
         
       - name: Publish to npm
         run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           
       - name: Output published version
         run: |
-          echo "Successfully published package version ${{ steps.package-version.outputs.version }} to npm"
+          echo "Successfully published package version ${{ steps.package-version.outputs.version }} to npm (built on ARM64)"
 
